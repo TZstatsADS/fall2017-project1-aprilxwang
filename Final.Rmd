@@ -1,0 +1,381 @@
+---
+title: "Differences in Speeches during War-time and Peace-time"
+author: 'Xinhu Wang (UNI: xw2439)'
+date: "10/1/2017"
+output: html_document
+---
+I want to analyze the sentiment of the speeches and see if there are noticable difference between wartime speeches and peacetime(non-wartime) speeches.
+
+### Downloaded necessary packages
+```{r, message=FALSE, warning=FALSE}
+packages.used=c("rvest", "tibble", "qdap", 
+                "sentimentr", "gplots", "dplyr",
+                "tm", "syuzhet", "factoextra", 
+                "beeswarm", "scales", "RColorBrewer",
+                "RANN", "tm", "topicmodels", "wordcloud")
+
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE)
+}
+
+# load packages
+library("rvest")
+library("tibble")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("tm")
+library("topicmodels")
+library("wordcloud")
+library("tidytext")
+
+library("xlsx")
+library(rJava)
+library("qdap")
+
+source("../lib/plotstacked.R")
+source("../lib/speechFuncs.R")
+```
+
+This notebook was prepared with the following environmental settings.
+
+```{r}
+print(R.version)
+```
+
+In order to analyze the sentiment of wartime speeches and non-wartime speeches, I chose ten significant inauguration speeches for each group.
+
+
+```{r}
+folder.path="../data/inauguralSpeeches/"
+speeches=list.files(path = folder.path, pattern = "*.txt")
+prex.out=substr(speeches, 6, nchar(speeches)-4)
+ff.all<-Corpus(DirSource(folder.path))
+
+#Speech selected
+speech.war=c("AbrahamLincoln-1","AbrahamLincoln-2","WoodrowWilson-1","WoodrowWilson-2","FranklinDRoosevelt-2","FranklinDRoosevelt-3","FranklinDRoosevelt-4","JohnFKennedy-1","RonaldReagan-1","GeorgeWBush-2")
+
+speech.nonwar=c("HerbertHoover-1","GeorgeBush-1","RichardNixon-1","WilliamJClinton-2","RonaldReagan-2","JimmyCarter-1","GeorgeWBush-1", "BarackObama-1", "BarackObama-2", "DonaldJTrump-1")
+```
+
+### Generate Term-Document Matrices
+```{r}
+# Term-Document Matrix (TDM) function
+generateTDM <- function(corpus){
+  corpus<-tm_map(corpus, stripWhitespace)
+  corpus<-tm_map(corpus, content_transformer(tolower))
+  corpus<-tm_map(corpus, removeWords, stopwords("english"))
+  corpus<-tm_map(corpus, removeWords, character(0))
+  corpus<-tm_map(corpus, removePunctuation)
+  
+  #TF-IDF weighted Term-Document Matrix
+  
+  TDM <- TermDocumentMatrix(corpus,
+                          control = list(weighting = function(x)
+                                             weightTfIdf(x, normalize =FALSE),
+                                         stopwords = TRUE))
+  TDM.tidy=tidy(TDM)
+  TDM.overall=summarise(group_by(TDM.tidy, term), sum(count))
+  
+  return(TDM.overall)
+}
+
+# Document-Term Matrix (DTM) function
+generateDTM <- function(corpus){
+  corpus<-tm_map(corpus, stripWhitespace)
+  corpus<-tm_map(corpus, content_transformer(tolower))
+  corpus<-tm_map(corpus, removeWords, stopwords("english"))
+  corpus<-tm_map(corpus, removeWords, character(0))
+  corpus<-tm_map(corpus, removePunctuation)
+  
+  #Document-Term Matrix
+  
+  DTM <- DocumentTermMatrix(corpus,
+                          control = list(weighting = function(x)
+                                             weightTfIdf(x, normalize =FALSE),
+                                         stopwords = TRUE))
+  DTM.tidy <- tidy(DTM)
+  DTM.overall <- summarise(group_by(DTM.tidy, term), sum(count))
+  r <- list(tidy = DTM.tidy, overall = DTM.overall)
+  
+  return(r)
+}
+
+#generate TDM & DTM for all speeches, war and non-war period
+tdm.war <- generateTDM(c(ff.all[[1]],ff.all[[2]],ff.all[[56]],ff.all[[57]],ff.all[[13]],ff.all[[14]],ff.all[[15]],ff.all[[35]],ff.all[[41]],ff.all[[21]]))
+tdm.nonwar <- generateTDM(c(ff.all[[5]],ff.all[[6]],ff.all[[9]],ff.all[[17]],ff.all[[20]],ff.all[[25]],ff.all[[33]],ff.all[[39]],ff.all[[42]],ff.all[[53]]))
+tdm.all <- generateTDM(ff.all)
+
+dtm.war <- generateDTM(c(ff.all[[1]],ff.all[[2]],ff.all[[56]],ff.all[[57]],ff.all[[13]],ff.all[[14]],ff.all[[15]],ff.all[[35]],ff.all[[41]],ff.all[[21]]))[[1]]
+dtm.nonwar <- generateDTM(c(ff.all[[5]],ff.all[[6]],ff.all[[9]],ff.all[[17]],ff.all[[20]],ff.all[[25]],ff.all[[33]],ff.all[[39]],ff.all[[42]],ff.all[[53]]))[[1]]
+dtm.all <- generateDTM(ff.all)
+```
+
+### Generate word clouds
+Let's see what are the most common words appeared during war time, and compare them with those during other times.
+
+```{r, fig.height=10, fig.width=10, warning=F}
+generateWordCloud <- function(tdm, mytitle){
+  wordcloud(tdm$term, tdm$`sum(count)`,
+          scale=c(5,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Blues"))
+  title(main = mytitle)
+}
+
+par(mfcol = c(3,1))
+generateWordCloud(tdm.war, 'Speeches During Wartime')
+generateWordCloud(tdm.nonwar, 'Speeches During Non-wartime')
+generateWordCloud(tdm.all, 'All Speeches')
+
+```
+From the word cloud graphs, we can see during war time, most inauguration speeches were focusing on "union", "freedom", and "government". While during the rest of time, "federal", "business", and "enforcement" were the most common words mentioned by presidents. This makes sense because during the war time, people would concern more about freedom, laws, and what the government could do to overcome the war. In contrast, during the peace time, presidents would talk more about economy, business, and human, which are the topics that the society concerned about.
+
+Overall, the most commonly mentioned words through all speeches were "America", "union", "congress", "freedom", "business", etc.
+
+### Sentiment Analysis
+After looking at the word cloud, I want to know the tone of speeches and see whether there is a significant difference in sentiment/emotion between groups.
+
+First we need to extract the speeches and split them into sentences. Then, I calculated the emotional scores for eight different emotions. Lastly, in order to visualize the result, I used bar plot to show the distribution of each emotion by their scores.
+```{r}
+#Split speech into sentences
+
+#For wartime speeches
+L1=sent_detect(ff.all[[1]]$content,endmarks = c("?", ".", "!", "|",";"))#LINCOLN-1
+
+L2=sent_detect(ff.all[[2]]$content,endmarks = c("?", ".", "!", "|",";"))#LINCOLN-2
+
+W1=sent_detect(ff.all[[56]]$content,endmarks = c("?", ".", "!", "|",";"))#WoodrowWilson-1 
+
+W2=sent_detect(ff.all[[57]]$content,endmarks = c("?", ".", "!", "|",";"))#WoodrowWilson-2
+
+F2=sent_detect(ff.all[[13]]$content,endmarks = c("?", ".", "!", "|",";"))#FranklinDRoosevelt-2
+
+F3=sent_detect(ff.all[[14]]$content,endmarks = c("?", ".", "!", "|",";"))#FranklinDRoosevelt-3
+
+F4=sent_detect(ff.all[[15]]$content,endmarks = c("?", ".", "!", "|",";"))#FranklinDRoosevelt-4
+
+J1=sent_detect(ff.all[[35]]$content,endmarks = c("?", ".", "!", "|",";"))#JohnFKenndy-1
+
+R1=sent_detect(ff.all[[41]]$content,endmarks = c("?", ".", "!", "|",";"))#RonaldReagan-1
+
+G2=sent_detect(ff.all[[21]]$content,endmarks= c("?", ".", "!", "|",";"))#GeorgeWBush-2
+
+#For non-wartime speeches
+H1=sent_detect(ff.all[[25]]$content,endmarks = c("?", ".", "!", "|",";")) #"HerbertHoover-1"
+
+C2=sent_detect(ff.all[[53]]$content,endmarks = c("?", ".", "!", "|",";"))#WilliamJClinton-2
+
+R2=sent_detect(ff.all[[42]]$content,endmarks = c("?", ".", "!", "|",";"))#RonaldReagan-2
+
+JC1=sent_detect(ff.all[[33]]$content,endmarks = c("?", ".", "!", "|",";"))#JimmyCarter-1
+
+G1=sent_detect(ff.all[[20]]$content,endmarks= c("?", ".", "!", "|",";"))#GeorgeWBush-1
+
+B1=sent_detect(ff.all[[5]]$content,endmarks = c("?", ".", "!", "|",";"))#"BarackObama-1"
+
+B2=sent_detect(ff.all[[6]]$content,endmarks = c("?", ".", "!", "|",";"))#"BarackObama-2"
+
+D1=sent_detect(ff.all[[9]]$content,endmarks = c("?", ".", "!", "|",";"))#"DonaldJTrump-1"
+
+GB1=sent_detect(ff.all[[17]]$content,endmarks = c("?", ".", "!", "|",";"))#"GeorgeBush-1"
+
+N1=sent_detect(ff.all[[39]]$content,endmarks = c("?", ".", "!", "|",";"))#"RichardNixon-1"
+
+#Create emotion matrix of these presidents with sentences
+sentence.list = list(L1,L2,W1,W2,F2,F3,F4,J1,R1,G2,H1,C2,R2,JC1,G1,B1,B2,D1,GB1,N1)
+
+title.list = c(rep("AbrahamLincoln-1",length(L1)),rep("AbrahamLincoln-2",length(L2)),rep("WoodrowWilson-1",length(W1)),rep("WoodrowWilson-2",length(W2)),rep("FranklinDRoosevelt-2",length(F2)),rep("FranklinDRoosevelt-3",length(F3)),rep("FranklinDRoosevelt-4",length(F4)),rep("JohnFKennedy-1",length(J1)),rep("RonaldReagan-1",length(R1)),rep("GeorgeWBush-2",length(G2)),rep("HerbertHoover-1",length(H1)),rep("WilliamJClinton-2",length(C2)),rep("RonaldReagan-2",length(R2)),rep("JimmyCarter-1",length(JC1)),rep("GeorgeWBush-1",length(G1)),rep("BarackObama-1",length(B1),rep("BarackObama-2",length(B2)),rep("DonaldJTrump-1",length(D1)),rep("GeorgeBush-1",length(GB1)),rep("RichardNixon-1",length(N1))))
+
+emotion.matrix = cbind(title.list,c(L1,L2,W1,W2,F2,F3,F4,J1,R1,G2,H1,C2,R2,JC1,G1,B1,B2,D1,GB1,N1))
+
+colnames(emotion.matrix)=c("President","Sentences")
+
+
+# Generate emotion matrix
+interm.matrix = NULL
+
+for(i in 1 : length(sentence.list)){
+  emotions=diag(1/(word_count(sentence.list[[i]])+0.01))%*%as.matrix(get_nrc_sentiment(sentence.list[[i]]))
+  
+  colnames(emotions)=c( "anger", "anticipation", "disgust", "fear", "joy", "sadness", "surprise", "trust", "negative", "positive")
+  
+  interm.matrix = rbind(interm.matrix,cbind(sent.id=as.numeric(1:length(sentence.list[[i]])),nword=word_count(sentence.list[[i]]),as.matrix(emotions)))
+}
+
+emotion.matrix = as.data.frame(cbind(emotion.matrix,interm.matrix))
+
+#Convert factors into numeric variables
+Factor_to_Numeric=function(df){
+  for(i in 3:14){
+    df[,i] = as.numeric(as.character(df[,i]))
+  }
+  return(df)
+}
+
+
+emotion.matrix = Factor_to_Numeric(emotion.matrix)
+
+#Summarize Data for Cluster analysis
+
+#For war group
+presid.summary.war=tbl_df(emotion.matrix)%>%
+  filter(President %in% c(speech.war))%>%
+  group_by(President)%>%
+  summarise(
+    anger=mean(anger,na.rm=TRUE),
+    anticipation=mean(anticipation,na.rm=TRUE),
+    disgust=mean(disgust,na.rm=TRUE),
+    fear=mean(fear,na.rm=TRUE),
+    joy=mean(joy,na.rm=TRUE),
+    sadness=mean(sadness,na.rm=TRUE),
+    surprise=mean(surprise,na.rm=TRUE),
+    trust=mean(trust,na.rm=TRUE)
+    )
+
+presid.summary.war=as.data.frame(presid.summary.war)
+
+rownames(presid.summary.war)=as.character((presid.summary.war[,1]))
+
+
+#For non-war speeches
+presid.summary.nonwar=tbl_df(emotion.matrix)%>%
+  filter(President%in%c(speech.nonwar))%>%
+  group_by(President)%>%
+  summarise(
+    anger=mean(anger,na.rm=TRUE),
+    anticipation=mean(anticipation,na.rm=TRUE),
+    disgust=mean(disgust,na.rm=TRUE),
+    fear=mean(fear,na.rm=TRUE),
+    joy=mean(joy,na.rm=TRUE),
+    sadness=mean(sadness,na.rm=TRUE),
+    surprise=mean(surprise,na.rm=TRUE),
+    trust=mean(trust,na.rm=TRUE)
+    )
+
+presid.summary.nonwar=as.data.frame(presid.summary.nonwar)
+rownames(presid.summary.nonwar)=as.character((presid.summary.nonwar[,1]))
+
+
+#For both groups
+presid.summary.all=tbl_df(emotion.matrix)%>%
+  
+  filter(President%in%c(speech.war,speech.nonwar))%>%
+  group_by(President)%>%
+  summarise(
+    anger=mean(anger,na.rm=TRUE),
+    anticipation=mean(anticipation,na.rm=TRUE),
+    disgust=mean(disgust,na.rm=TRUE),
+    fear=mean(fear,na.rm=TRUE),
+    joy=mean(joy,na.rm=TRUE),
+    sadness=mean(sadness,na.rm=TRUE),
+    surprise=mean(surprise,na.rm=TRUE),
+    trust=mean(trust,na.rm=TRUE)
+    )
+
+presid.summary.all=as.data.frame(presid.summary.all)
+rownames(presid.summary.all)=as.character((presid.summary.all[,1]))
+```
+
+```{r, fig.width = 10, fig.height = 10}
+#Plot Emotion Barplot
+Emotion_Barplot= function(pop){
+  par(mar=c(4, 6, 2, 1))
+  
+  emo.means=colMeans(select(subset(emotion.matrix,emotion.matrix$President==pop), anger:trust)>0.01,na.rm=TRUE)
+  
+  col.use=c("red2", "darkgoldenrod1", 
+            "chartreuse3", "blueviolet",
+            "darkgoldenrod2", "dodgerblue3", 
+            "darkgoldenrod1", "darkgoldenrod1")
+  
+  barplot(emo.means[order(emo.means)], las=2, col=col.use[order(emo.means)], horiz=T)
+}
+par(mfrow=c(2,2))
+Emotion_Barplot(speech.nonwar[1])
+Emotion_Barplot(speech.nonwar[4])
+Emotion_Barplot(speech.nonwar[5])
+Emotion_Barplot(speech.nonwar[7])
+
+```
+I chose four speeches during non-wartime, and it looks like Trust, Anticipation, and joy are the dominant tone during those speeches. What about the tone for war time speeches?
+
+```{r, fig.width = 10, fig.height = 10}
+par(mfrow=c(2,2))
+Emotion_Barplot(speech.war[1])
+Emotion_Barplot(speech.war[3])
+Emotion_Barplot(speech.war[6])
+Emotion_Barplot(speech.war[8])
+```
+
+
+
+```{r, fig.width = 10, fig.height = 10}
+# Compare emotions between war time and peace time
+par(mfrow=c(2,1))
+Emotion_Barplot(speech.nonwar)
+title(main = "Emotion during non-wartime")
+
+Emotion_Barplot(speech.war)
+title(main = "Emotion during wartime")
+```
+If I merge all speeches to their own group and draw an overall emotion bar plot, we can see a slight difference here: During both time, the dominant emotion of speeches was trust, but the ratio of trust was higher during war time. It's interesting that fear is in the top three emotions during peace time, while it's not a common emotion in war time speeches. I assume this happened because during that war time, presidents did not want to express too much negative emotion during the speech to make people feel worse.
+
+### Cluster plots
+Use emotion scores of both groups and apply k-means cluster algorithm.
+```{r, fig.width = 10, fig.height = 10}
+par(mfrow = c(2, 2))
+km.res=kmeans(presid.summary.war[,-1],2,iter.max=200,nstart=5)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = presid.summary.war[,-1], xlab="", xaxt="n",
+             show.clust.cent=FALSE)
+
+km.res=kmeans(presid.summary.nonwar[,-1],2,iter.max=200,nstart=5)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = presid.summary.nonwar[,-1], xlab="", xaxt="n",
+             show.clust.cent=FALSE)
+
+km.res=kmeans(presid.summary.all[,-1],2,iter.max=200,nstart=5)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = presid.summary.all[,-1], xlab="", xaxt="n",
+             show.clust.cent=FALSE)
+
+km.res=kmeans(presid.summary.all[,-1],3,iter.max=200,nstart=5)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = presid.summary.all[,-1], xlab="", xaxt="n",
+             show.clust.cent=FALSE)
+
+```
+
+I classified all speeches into 2, and 3 clusters respectively. From either the analysis using three clusters or the analysis using four clusters, we can see that we are not able to distinctly distinguish speeches from war group and the other group, as most of them coexist in these clusters. However, we are able to do that to Reagan's speeches though, as we see that his two speeches, which belong to the "war" group and "peace" group separately, are being classified into different clusters.
+
+### Conclusion
+We have discussed several intersting patterns in both the "war" speech group and "peace" speech group. The patterns are certainly interesting and there are many of them deserve more digging to better expalin why these patterns exist. I hope you enjoy my blog and thank you for reading!
+```{r}
+
+```
+
+```{r}
+
+```

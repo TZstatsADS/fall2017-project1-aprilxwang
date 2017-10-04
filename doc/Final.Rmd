@@ -202,7 +202,7 @@ N1=sent_detect(ff.all[[39]]$content,endmarks = c("?", ".", "!", "|",";"))#"Richa
 #Create emotion matrix of these presidents with sentences
 sentence.list = list(L1,L2,W1,W2,F2,F3,F4,J1,R1,G2,H1,C2,R2,JC1,G1,B1,B2,D1,GB1,N1)
 
-title.list = c(rep("AbrahamLincoln-1",length(L1)),rep("AbrahamLincoln-2",length(L2)),rep("WoodrowWilson-1",length(W1)),rep("WoodrowWilson-2",length(W2)),rep("FranklinDRoosevelt-2",length(F2)),rep("FranklinDRoosevelt-3",length(F3)),rep("FranklinDRoosevelt-4",length(F4)),rep("JohnFKennedy-1",length(J1)),rep("RonaldReagan-1",length(R1)),rep("GeorgeWBush-2",length(G2)),rep("HerbertHoover-1",length(H1)),rep("WilliamJClinton-2",length(C2)),rep("RonaldReagan-2",length(R2)),rep("JimmyCarter-1",length(JC1)),rep("GeorgeWBush-1",length(G1)),rep("BarackObama-1",length(B1),rep("BarackObama-2",length(B2)),rep("DonaldJTrump-1",length(D1)),rep("GeorgeBush-1",length(GB1)),rep("RichardNixon-1",length(N1))))
+title.list = c(rep("AbrahamLincoln-1",length(L1)),rep("AbrahamLincoln-2",length(L2)),rep("WoodrowWilson-1",length(W1)),rep("WoodrowWilson-2",length(W2)),rep("FranklinDRoosevelt-2",length(F2)),rep("FranklinDRoosevelt-3",length(F3)),rep("FranklinDRoosevelt-4",length(F4)),rep("JohnFKennedy-1",length(J1)),rep("RonaldReagan-1",length(R1)),rep("GeorgeWBush-2",length(G2)),rep("HerbertHoover-1",length(H1)),rep("WilliamJClinton-2",length(C2)),rep("RonaldReagan-2",length(R2)),rep("JimmyCarter-1",length(JC1)),rep("GeorgeWBush-1",length(G1)),rep("BarackObama-1",length(B1)),rep("BarackObama-2",length(B2)),rep("DonaldJTrump-1",length(D1)),rep("GeorgeBush-1",length(GB1)),rep("RichardNixon-1",length(N1)))
 
 emotion.matrix = cbind(title.list,c(L1,L2,W1,W2,F2,F3,F4,J1,R1,G2,H1,C2,R2,JC1,G1,B1,B2,D1,GB1,N1))
 
@@ -320,12 +320,12 @@ I chose four speeches during non-wartime, and it looks like Trust, Anticipation,
 ```{r, fig.width = 10, fig.height = 10}
 par(mfrow=c(2,2))
 Emotion_Barplot(speech.war[1])
-Emotion_Barplot(speech.war[3])
+Emotion_Barplot(speech.war[2])
+Emotion_Barplot(speech.war[5])
 Emotion_Barplot(speech.war[6])
-Emotion_Barplot(speech.war[8])
 ```
 
-
+From the selected four speeches, we can easily see that fear and sadness were expressed more in war-time speeches. Other than that, trust is also a major sentiment in presidents' talk. 
 
 ```{r, fig.width = 10, fig.height = 10}
 # Compare emotions between war time and peace time
@@ -336,7 +336,8 @@ title(main = "Emotion during non-wartime")
 Emotion_Barplot(speech.war)
 title(main = "Emotion during wartime")
 ```
-If I merge all speeches to their own group and draw an overall emotion bar plot, we can see a slight difference here: During both time, the dominant emotion of speeches was trust, but the ratio of trust was higher during war time. It's interesting that fear is in the top three emotions during peace time, while it's not a common emotion in war time speeches. I assume this happened because during that war time, presidents did not want to express too much negative emotion during the speech to make people feel worse.
+
+If I merge all speeches to their own group and draw an overall emotion bar plot, we can see a difference here: During both time, the dominant emotion of speeches was trust, but the ratio of trust was higher during war time. During war time, the talks also contain more fear and sadness, which is reasonable because wars brought negative effects for the country and people.
 
 ### Cluster plots
 Use emotion scores of both groups and apply k-means cluster algorithm.
@@ -368,14 +369,7 @@ fviz_cluster(km.res,
 
 ```
 
-I classified all speeches into 2, and 3 clusters respectively. From either the analysis using three clusters or the analysis using four clusters, we can see that we are not able to distinctly distinguish speeches from war group and the other group, as most of them coexist in these clusters. However, we are able to do that to Reagan's speeches though, as we see that his two speeches, which belong to the "war" group and "peace" group separately, are being classified into different clusters.
+I classified all speeches into two and three clusters respectively. From the  analysis using three clusters, we are not able to find significant difference among those speeches from two groups, but from the two-clusters plot, we can see that most of the speeches are clustered according to the war/nonwar groups.
 
 ### Conclusion
-We have discussed several intersting patterns in both the "war" speech group and "peace" speech group. The patterns are certainly interesting and there are many of them deserve more digging to better expalin why these patterns exist. I hope you enjoy my blog and thank you for reading!
-```{r}
-
-```
-
-```{r}
-
-```
+Above are several text mining and classification analysis I did on speeches from wartime group and non-wartime group. The patterns and results are interesting, some of them are also surprising. I'm sure there are many other informations that we can work on in order to find more patterns.
